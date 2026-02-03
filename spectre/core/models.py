@@ -53,7 +53,7 @@ class CaptureBase(BaseModel):
     @field_validator("url")
     @classmethod
     def validate_url(cls, v: str) -> str:
-        # Basic URL validation – could be extended
+        
         if not v.startswith(("http://", "https://")):
             raise ValueError("URL must start with http:// or https://")
         return v

@@ -23,7 +23,6 @@ app = typer.Typer(
 )
 console = Console()
 
-# Configure logging for CLI
 logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",

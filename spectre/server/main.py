@@ -23,10 +23,10 @@ def create_app() -> FastAPI:
         version="0.2.0",
     )
 
-    # CORS
+    
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # In production, restrict appropriately
+        allow_origins=["*"],  
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -64,8 +64,8 @@ def create_app() -> FastAPI:
             description=f"Auto-generated route for {res.url_pattern}"
         )
         
-        # Register Detail Endpoint (GET /api/products/{id})
-        # Note: We reuse the generic logic but bind the resource_name
+        
+        
         async def specific_get_record(record_id: str, res_name: str = res.name):
             return await get_resource_record(resource_name=res_name, record_id=record_id)
             
@@ -77,12 +77,12 @@ def create_app() -> FastAPI:
             summary=f"Get {res.name} by ID"
         )
 
-    # Health check endpoint
+    
     @app.get("/health")
     async def health():
         return {"status": "healthy", "service": "spectre"}
 
-    # Root endpoint
+    
     @app.get("/")
     async def root():
         config = get_config()
@@ -92,7 +92,7 @@ def create_app() -> FastAPI:
             "resources": [r.name for r in config.resources],
         }
 
-    # Error handler for database connectivity
+    
     @app.exception_handler(Exception)
     async def generic_exception_handler(request, exc):
         logger.exception("Unhandled exception")
@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
     return app
 
 
-# Global app instance
+
 app = create_app()
 
 

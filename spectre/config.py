@@ -12,11 +12,11 @@ from spectre.core.models import Resource, SpectreConfig
 
 logger = logging.getLogger(__name__)
 
-# Default configuration file name
+
 DEFAULT_CONFIG_NAME = "spectre.yaml"
-# Environment variable for config path
+
 CONFIG_ENV_VAR = "SPECTRE_CONFIG_PATH"
-# Environment variable for database path
+
 DB_ENV_VAR = "SPECTRE_DB_PATH"
 
 
@@ -57,18 +57,18 @@ class SpectreConfigManager:
                 f"Config file specified in {CONFIG_ENV_VAR} does not exist: {env_path}"
             )
 
-        # Try default location in current directory
+        
         default = Path.cwd() / DEFAULT_CONFIG_NAME
         if default.exists():
             return default
 
-        # If no config file exists, we'll return a default path anyway
-        # but warn that we're using defaults.
+        
+        
         logger.warning(
             f"No configuration file found. Using defaults. "
             f"Create {DEFAULT_CONFIG_NAME} or set {CONFIG_ENV_VAR}."
         )
-        return default  # may not exist, that's okay
+        return default  
 
     def _load_yaml(self, config_path: Path) -> dict:
         """Load YAML content from file."""
@@ -98,12 +98,12 @@ class SpectreConfigManager:
 
     def _build_config(self, yaml_data: dict) -> SpectreConfig:
         """Build a SpectreConfig instance from raw data."""
-        # Determine database path (env var overrides YAML)
+        
         db_path = os.getenv(DB_ENV_VAR)
         if not db_path:
             db_path = yaml_data.get("database_path", "./data/spectre.duckdb")
 
-        # Parse resources
+        
         raw_resources = yaml_data.get("resources", [])
         resources = []
         for r in raw_resources:
@@ -149,7 +149,7 @@ class SpectreConfigManager:
         self._config = None
 
 
-# Global singleton instance
+
 _config_manager = SpectreConfigManager()
 
 

@@ -25,7 +25,7 @@ from spectre.database import DatabaseConnection, insert_capture
 
 logger = logging.getLogger(__name__)
 
-# Content‑type patterns that indicate JSON responses
+
 JSON_CONTENT_TYPES = {
     "application/json",
     "application/vnd.api+json",
@@ -34,7 +34,7 @@ JSON_CONTENT_TYPES = {
     "application/json;charset=utf-8",
 }
 
-# Domains to ignore (advertising, tracking, etc.)
+
 IGNORED_DOMAINS = {
     "google-analytics.com",
     "facebook.com",
@@ -64,7 +64,7 @@ def should_ignore_domain(url: str) -> bool:
                 return True
         return False
     except (ValueError, AttributeError):
-        # Invalid URL or missing netloc
+        
         return False
 
 
@@ -90,7 +90,7 @@ class Watcher:
         self._running = False
         self._capture_count = 0
 
-        # Rich console for pretty output
+        
         self.console = Console()
 
     async def start(self, start_url: Optional[str] = None) -> None:
@@ -107,7 +107,7 @@ class Watcher:
         self._page = await self._browser.new_page()
         self._page.on("close", lambda p: self._stop_event.set())
 
-        # Enable request/response interception
+        
         await self._page.route("**/*", self._on_route)
 
         if start_url:
@@ -139,35 +139,35 @@ class Watcher:
         url = response.url
         method = response.request.method
 
-        # Skip ignored domains
+        
         if should_ignore_domain(url):
             logger.debug(f"Ignoring domain: {url}")
             return
 
-        # Check content‑type
+        
         headers = response.headers
         content_type = headers.get("content-type")
         if not is_json_response(content_type):
             return
 
-        # Try to read the body
+        
         try:
             body = await response.body()
         except Exception as e:
             logger.warning(f"Failed to read body from {url}: {e}")
             return
 
-        # Validate JSON (optional but useful)
+        
         try:
             json.loads(body.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
             logger.debug(f"Non‑JSON body in {url}, skipping")
             return
 
-        # Compute hash
+        
         body_hash = hashlib.sha256(body).hexdigest()
 
-        # Store in database
+        
         try:
             with DatabaseConnection(self.database_path) as conn:
                 insert_capture(
@@ -187,7 +187,7 @@ class Watcher:
         self._capture_count += 1
         logger.info(f"Captured {method} {url} ({len(body)} bytes)")
 
-        # Occasionally log progress
+        
         if self._capture_count % 10 == 0:
             self.console.print(
                 f"[dim]Captured {self._capture_count} responses so far...[/dim]"
@@ -252,11 +252,11 @@ def setup_logging(level: int = logging.INFO) -> None:
         datefmt="[%X]",
         handlers=[RichHandler(rich_tracebacks=True)],
     )
-    # Silence noisy Playwright logs
+    
     logging.getLogger("playwright").setLevel(logging.WARNING)
 
 
 if __name__ == "__main__":
-    # Quick test
+    
     setup_logging()
     asyncio.run(watch_url("https://jsonplaceholder.typicode.com/posts"))

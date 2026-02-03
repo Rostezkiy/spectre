@@ -16,7 +16,7 @@ from spectre.core.models import Resource
 
 logger = logging.getLogger(__name__)
 
-# Regular expressions for segment classification
+
 INTEGER_PATTERN = re.compile(r"^\d+$")
 UUID_PATTERN = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -55,9 +55,9 @@ def url_to_pattern(url: str) -> str:
     path = parsed.path.rstrip("/")
     segments = [s for s in path.split("/") if s]
     classified = [classify_segment(s) for s in segments]
-    # Reconstruct pattern
+    
     pattern = "/" + "/".join(classified) if classified else "/"
-    # Include query? Not for now.
+    
     return pattern
 
 
@@ -87,17 +87,17 @@ def suggest_resource_name(pattern: str, example_urls: List[str]) -> str:
     - If none, use the first static segment.
     - Fallback to generic 'resource_N'.
     """
-    # Extract static segments from pattern
+    
     segments = pattern.strip("/").split("/")
     static_segments = [s for s in segments if not s.startswith("{")]
 
     if static_segments:
-        # Prefer the last static segment (most specific)
+        
         candidate = static_segments[-1]
-        # Pluralize if singular? Not now.
+        
         return candidate.lower()
 
-    # No static segments – try to infer from example URL
+    
     if example_urls:
         example = example_urls[0]
         parsed = urlparse(example)
@@ -106,7 +106,7 @@ def suggest_resource_name(pattern: str, example_urls: List[str]) -> str:
         if last:
             return last.lower()
 
-    # Ultimate fallback
+    
     return "resource"
 
 
@@ -129,7 +129,7 @@ def suggest_resources(
 
     for pattern, example_urls in clusters.items():
         name = suggest_resource_name(pattern, example_urls)
-        # Ensure uniqueness
+        
         original_name = name
         counter = 1
         while name in seen_names:
@@ -137,18 +137,18 @@ def suggest_resources(
             counter += 1
         seen_names.add(name)
 
-        # Determine primary key (guess)
+        
         primary_key = None
         
-        # 1. Try to guess from pattern placeholders first
+        
         if "{int}" in pattern or "{uuid}" in pattern or "{id}" in pattern:
             primary_key = "id"
 
-        # 2. Inspect Sample Data (Heuristic)
+        
         if example_urls and conn:
-            # Fetch one body for this pattern
+            
             try:
-                # We need to find a blob associated with one of the example URLs
+                
                 sample_sql = """
                     SELECT b.body
                     FROM captures c
@@ -156,7 +156,7 @@ def suggest_resources(
                     WHERE c.url = ?
                     LIMIT 1
                 """
-                # Need to handle potential string/dict return type
+                
                 row = conn.execute(sample_sql, [example_urls[0]]).fetchone()
                 if row:
                     import json
@@ -165,14 +165,14 @@ def suggest_resources(
                         body = json.loads(body)
                     
                     if isinstance(body, dict):
-                        # Common ID candidates
+                        
                         candidates = ["id", "uuid", "slug", "_id", "uid", "code"]
                         for cand in candidates:
                             if cand in body:
                                 primary_key = cand
                                 break
                         
-                        # If it's a list response, check inside the first item
+                        
                         if "data" in body and isinstance(body["data"], list) and body["data"]:
                             item = body["data"][0]
                             for cand in candidates:
@@ -187,7 +187,7 @@ def suggest_resources(
                 name=name,
                 url_pattern=re.escape(pattern).replace(r"\{", "{").replace(
                     r"\}", "}"
-                ),  # keep placeholders literal
+                ),  
                 method=method,
                 primary_key=primary_key,
             )
@@ -259,7 +259,7 @@ def print_analysis(
 
     console = Console()
 
-    # Table of discovered patterns
+    
     table = Table(title="Discovered URL Patterns")
     table.add_column("Pattern", style="cyan")
     table.add_column("Example URL", style="dim")
@@ -271,7 +271,7 @@ def print_analysis(
 
     console.print(table)
 
-    # Table of suggested resources
+    
     if resources:
         res_table = Table(title="Suggested Resources")
         res_table.add_column("Name", style="green")
@@ -285,7 +285,7 @@ def print_analysis(
             )
         console.print(res_table)
 
-    # YAML output
+    
     if output_yaml:
         console.print("\n[bold]YAML configuration:[/bold]")
         yaml_text = generate_yaml_config(resources)

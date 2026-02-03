@@ -25,7 +25,7 @@ class DatabaseConnection:
         self._conn = None
 
     def __enter__(self):
-        # Ensure data directory exists
+        
         data_dir = Path(self.database_path).parent
         data_dir.mkdir(parents=True, exist_ok=True)
 
@@ -36,13 +36,13 @@ class DatabaseConnection:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._conn is not None:
             self._conn.close()
-        return False  # propagate exceptions
+        return False  
 
 
 def init_database(database_path: Optional[str] = None) -> None:
     """Initialize the database schema (create tables if not exist)."""
     with DatabaseConnection(database_path) as conn:
-        # blobs table: content‑addressable storage
+        
         conn.execute("""
             CREATE TABLE IF NOT EXISTS blobs (
                 hash TEXT PRIMARY KEY,
@@ -51,7 +51,7 @@ def init_database(database_path: Optional[str] = None) -> None:
             )
         """)
 
-        # captures table: metadata referencing blobs
+        
         conn.execute("""
             CREATE TABLE IF NOT EXISTS captures (
                 id UUID PRIMARY KEY,
@@ -65,7 +65,7 @@ def init_database(database_path: Optional[str] = None) -> None:
             )
         """)
 
-        # resources table: definitions for API generation
+        
         conn.execute("""
             CREATE TABLE IF NOT EXISTS resources (
                 name TEXT PRIMARY KEY,
@@ -75,7 +75,7 @@ def init_database(database_path: Optional[str] = None) -> None:
             )
         """)
 
-        # Indexes
+        
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_captures_url ON captures(url)"
         )
@@ -119,14 +119,14 @@ def insert_blob(
     if hash_value is None:
         hash_value = hash_body(body)
 
-    # Check existence first (avoid unnecessary INSERT)
+    
     exists = conn.execute(
         "SELECT 1 FROM blobs WHERE hash = ?", (hash_value,)
     ).fetchone()
     if exists:
         return hash_value
 
-    # Insert
+    
     conn.execute(
         "INSERT INTO blobs (hash, body) VALUES (?, ?)",
         (hash_value, body.decode("utf-8")),
@@ -161,7 +161,7 @@ def insert_capture(
     Returns:
         UUID of the inserted capture record.
     """
-    # Compute hash and insert blob
+    
     blob_hash = insert_blob(conn, body)
 
     capture_id = str(uuid4())
@@ -242,7 +242,7 @@ def cleanup_old_captures(
 
     Returns number of deleted capture rows.
     """
-    # Delete captures
+    
     result = conn.execute(
     """
     DELETE FROM captures
@@ -251,7 +251,7 @@ def cleanup_old_captures(
     """,
     (older_than_days,),).fetchall()
 
-    # Delete blobs that are no longer referenced
+    
     conn.execute("""
         DELETE FROM blobs
         WHERE hash NOT IN (SELECT DISTINCT blob_hash FROM captures)
@@ -263,7 +263,7 @@ def cleanup_old_captures(
 
 
 if __name__ == "__main__":
-    # Quick test if run directly
+    
     logging.basicConfig(level=logging.INFO)
     init_database()
     print("Database initialized successfully.")

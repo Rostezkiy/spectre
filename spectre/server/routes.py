@@ -90,7 +90,7 @@ def build_filter_conditions(
             elif operator == "neq":
                 conditions.append(f"{column} != ?")
             else:
-                # Unknown operator, treat as equality on the whole key
+                
                 column = f"body->>'{key}'"
                 conditions.append(f"{column} = ?")
         else:
@@ -100,7 +100,7 @@ def build_filter_conditions(
 
     if conditions:
         return " AND ".join(conditions), values
-    return "1=1", []  # no filter
+    return "1=1", []  
 
 
 @router.get("/{resource_name}")
@@ -108,9 +108,9 @@ async def list_resource(
     resource_name: str = Path(..., description="Resource name"),
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
-    # Dynamic filter parameters: any key=value pair
+    
     filters: Dict[str, Any] = Depends(lambda: {}),
-    # Optional sorting
+    
     sort: Optional[str] = Query(None, description="Field to sort by"),
     order: str = Query("asc", regex="^(asc|desc)$"),
 ):
@@ -123,26 +123,26 @@ async def list_resource(
     import json
     resource = get_resource_by_name(resource_name)
 
-    # Build WHERE clause for URL pattern
+    
     url_pattern = resource.url_pattern
     regex_pattern = pattern_to_regex(url_pattern)
     where_clauses = ["regexp_full_match(c.url, ?)"]
     params = [regex_pattern]
 
-    # Add JSON field filters
+    
     filter_sql, filter_params = build_filter_conditions(filters)
     where_clauses.append(filter_sql)
     params.extend(filter_params)
 
     where_sql = " AND ".join(f"({wc})" for wc in where_clauses)
 
-    # Sorting
+    
     order_by = ""
     if sort:
-        # Validate sort field exists? Not strictly necessary.
+        
         order_by = f"ORDER BY body->>'{sort}' {order.upper()}"
 
-    # Query
+    
     sql = f"""
         SELECT c.id, c.url, c.method, c.status, c.timestamp, b.body
         FROM captures c
@@ -160,19 +160,19 @@ async def list_resource(
         logger.exception("Database query failed")
         raise HTTPException(status_code=500, detail="Internal database error")
 
-    # Convert to list of JSON objects
+    
     records = []
     for row in rows:
         body_data = row[5]
         
-        # ЗАЩИТА ОТ DUCKDB: Если вернулась строка, парсим её в dict
+        
         if isinstance(body_data, str):
             try:
                 body_data = json.loads(body_data)
             except json.JSONDecodeError:
-                body_data = {}  # Fallback на случай битых данных
+                body_data = {}  
         
-        # Если body_data None (бывает при NULL в базе), заменяем на пустой dict
+        
         if body_data is None:
             body_data = {}
 
@@ -182,18 +182,18 @@ async def list_resource(
             "method": row[2],
             "status": row[3],
             "timestamp": row[4],
-            **body_data,  # Теперь это гарантированно словарь
+            **body_data,  
         }
         records.append(record)
 
-    # Total count for pagination metadata
+    
     count_sql = f"""
         SELECT COUNT(*)
         FROM captures c
         JOIN blobs b ON c.blob_hash = b.hash
         WHERE {where_sql}
     """
-    count_params = params[:-2]  # exclude limit/offset
+    count_params = params[:-2]  
     with DatabaseConnection() as conn:
         total = conn.execute(count_sql, count_params).fetchone()[0]
 
