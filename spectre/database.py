@@ -1,12 +1,9 @@
 """DuckDB database management for Spectre."""
 
-import contextlib
 import hashlib
 import json
 import logging
 import os
-import sqlite3
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4

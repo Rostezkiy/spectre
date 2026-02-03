@@ -63,7 +63,8 @@ def should_ignore_domain(url: str) -> bool:
             if domain.endswith(ignored):
                 return True
         return False
-    except Exception:
+    except (ValueError, AttributeError):
+        # Invalid URL or missing netloc
         return False
 
 
@@ -192,17 +193,16 @@ class Watcher:
 
     async def capture(self, url: str) -> None:
         """
-        Navigate to a URL and wait for network idle, capturing responses.
-
-        This is a convenience method for targeted capture.
+        Navigate to a URL and wait for page load, capturing responses.
         """
         if not self._page:
             raise RuntimeError("Watcher not started")
-
         self.console.print(f"[cyan]Capturing from {url}[/cyan]")
-        await self._page.goto(url, wait_until="networkidle")
-        # Additional waiting can be added here
-        await asyncio.sleep(2)
+        try:
+            await self._page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        except Exception as e:
+            self.console.print(f"[yellow]Navigation warning (non-fatal): {e}[/yellow]")
+        await asyncio.sleep(3)
 
     async def run_until_interrupt(self) -> None:
         """Keep the watcher running until keyboard interrupt."""

@@ -15,6 +15,25 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+def pattern_to_regex(pattern: str) -> str:
+    """
+    Превращает /api/users/{int} -> ^.*/api/users/\d+$
+    """
+    # Экранируем спецсимволы, кроме фигурных скобок
+    regex = re.escape(pattern)
+    
+    # Заменяем плейсхолдеры на regex-группы
+    regex = regex.replace(r"\{int\}", r"\d+")
+    regex = regex.replace(r"\{uuid\}", r"[0-9a-fA-F-]{36}")
+    regex = regex.replace(r"\{id\}", r"[^/]+")
+    
+    # DuckDB regexp_matches ищет подстроку, поэтому лучше закрепить начало/конец,
+    # но так как мы храним полные URL, а паттерн может быть относительным,
+    # безопаснее добавить .* в начало, если паттерн начинается с /
+    if regex.startswith("/"):
+        regex = ".*" + regex
+        
+    return regex
 
 def get_resource_by_name(name: str) -> Resource:
     """Look up a resource by its name."""
@@ -45,6 +64,11 @@ def build_filter_conditions(
     values = []
 
     for key, value in filters.items():
+        field_name_check = key.split("__")[0]
+        if not re.match(r"^[a-zA-Z0-9_]+$", field_name_check):
+            logger.warning(f"Ignored unsafe filter key: {key}")
+            continue
+
         if "__" in key:
             field, operator = key.rsplit("__", 1)
             column = f"body->>'{field}'"
@@ -101,16 +125,14 @@ async def list_resource(
     Supports filtering by JSON fields via query parameters.
     Example: `/api/products?category=electronics&price__gt=100`
     """
+    import json
     resource = get_resource_by_name(resource_name)
 
     # Build WHERE clause for URL pattern
     url_pattern = resource.url_pattern
-    # If pattern contains {int}, {uuid}, {id} placeholders, convert to regex?
-    # For simplicity, we treat url_pattern as a SQL LIKE pattern.
-    # However, the analyzer generates regex patterns; we need to convert.
-    # For MVP, assume url_pattern is already a SQL LIKE pattern.
-    where_clauses = ["c.url LIKE ?"]
-    params = [url_pattern]
+    regex_pattern = pattern_to_regex(url_pattern)
+    where_clauses = ["regexp_matches(c.url, ?)"]
+    params = [regex_pattern]
 
     # Add JSON field filters
     filter_sql, filter_params = build_filter_conditions(filters)
@@ -146,13 +168,26 @@ async def list_resource(
     # Convert to list of JSON objects
     records = []
     for row in rows:
+        body_data = row[5]
+        
+        # ЗАЩИТА ОТ DUCKDB: Если вернулась строка, парсим её в dict
+        if isinstance(body_data, str):
+            try:
+                body_data = json.loads(body_data)
+            except json.JSONDecodeError:
+                body_data = {}  # Fallback на случай битых данных
+        
+        # Если body_data None (бывает при NULL в базе), заменяем на пустой dict
+        if body_data is None:
+            body_data = {}
+
         record = {
             "id": row[0],
             "url": row[1],
             "method": row[2],
             "status": row[3],
             "timestamp": row[4],
-            **row[5],  # body is already a dict
+            **body_data,  # Теперь это гарантированно словарь
         }
         records.append(record)
 
