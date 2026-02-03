@@ -83,7 +83,7 @@ The following examples use the `python -m spectre.cli` syntax, but you can repla
 
 4. **Generate configuration** (optional):
    ```bash
-   python -m spectre.cli analyze --generate-config > spectre.yaml
+   python -m spectre.cli analyze --output spectre.yaml
    ```
    Edit `spectre.yaml` to adjust resource names and patterns.
 

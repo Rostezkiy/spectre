@@ -114,7 +114,7 @@ def suggest_resource_name(pattern: str, example_urls: List[str]) -> str:
 
 
 def suggest_resources(
-    clusters: Dict[str, List[str]], method: str = "GET"
+    clusters: Dict[str, List[str]], method: str = "GET", conn = None
 ) -> List[Resource]:
     """
     Convert pattern clusters into Resource suggestions.
@@ -122,6 +122,7 @@ def suggest_resources(
     Args:
         clusters: Output of cluster_urls().
         method: HTTP method to assign.
+        conn: Optional database connection for sample data inspection.
 
     Returns:
         List of Resource objects with suggested names.
@@ -141,8 +142,48 @@ def suggest_resources(
 
         # Determine primary key (guess)
         primary_key = None
+        
+        # 1. Try to guess from pattern placeholders first
         if "{int}" in pattern or "{uuid}" in pattern or "{id}" in pattern:
-            primary_key = "id"  # common convention
+            primary_key = "id"
+
+        # 2. Inspect Sample Data (Heuristic)
+        if example_urls and conn:
+            # Fetch one body for this pattern
+            try:
+                # We need to find a blob associated with one of the example URLs
+                sample_sql = """
+                    SELECT b.body
+                    FROM captures c
+                    JOIN blobs b ON c.blob_hash = b.hash
+                    WHERE c.url = ?
+                    LIMIT 1
+                """
+                # Need to handle potential string/dict return type
+                row = conn.execute(sample_sql, [example_urls[0]]).fetchone()
+                if row:
+                    import json
+                    body = row[0]
+                    if isinstance(body, str):
+                        body = json.loads(body)
+                    
+                    if isinstance(body, dict):
+                        # Common ID candidates
+                        candidates = ["id", "uuid", "slug", "_id", "uid", "code"]
+                        for cand in candidates:
+                            if cand in body:
+                                primary_key = cand
+                                break
+                        
+                        # If it's a list response, check inside the first item
+                        if "data" in body and isinstance(body["data"], list) and body["data"]:
+                            item = body["data"][0]
+                            for cand in candidates:
+                                if cand in item:
+                                    primary_key = cand
+                                    break
+            except Exception as e:
+                logger.warning(f"Failed to inspect sample data for PK detection: {e}")
 
         resources.append(
             Resource(
@@ -178,19 +219,19 @@ def analyze_database(
     with DatabaseConnection(database_path) as conn:
         urls = get_distinct_urls(conn, limit=limit)
 
-    if not urls:
-        logger.warning("No captured URLs found in database.")
-        return {}, []
+        if not urls:
+            logger.warning("No captured URLs found in database.")
+            return {}, []
 
-    logger.info(f"Analyzing {len(urls)} distinct URLs")
-    clusters = cluster_urls(urls)
-    resources = suggest_resources(clusters)
+        logger.info(f"Analyzing {len(urls)} distinct URLs")
+        clusters = cluster_urls(urls)
+        resources = suggest_resources(clusters, conn=conn)
 
-    logger.info(
-        f"Discovered {len(clusters)} patterns, "
-        f"suggesting {len(resources)} resources"
-    )
-    return clusters, resources
+        logger.info(
+            f"Discovered {len(clusters)} patterns, "
+            f"suggesting {len(resources)} resources"
+        )
+        return clusters, resources
 
 
 def generate_yaml_config(resources: List[Resource]) -> str:

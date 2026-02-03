@@ -17,19 +17,14 @@ router = APIRouter()
 
 def pattern_to_regex(pattern: str) -> str:
     """
-    Превращает /api/users/{int} -> ^.*/api/users/\d+$
+    Превращает /api/users/{int} -> ^.*/api/users/\\d+$
     """
-    # Экранируем спецсимволы, кроме фигурных скобок
     regex = re.escape(pattern)
     
-    # Заменяем плейсхолдеры на regex-группы
     regex = regex.replace(r"\{int\}", r"\d+")
     regex = regex.replace(r"\{uuid\}", r"[0-9a-fA-F-]{36}")
     regex = regex.replace(r"\{id\}", r"[^/]+")
-    
-    # DuckDB regexp_matches ищет подстроку, поэтому лучше закрепить начало/конец,
-    # но так как мы храним полные URL, а паттерн может быть относительным,
-    # безопаснее добавить .* в начало, если паттерн начинается с /
+
     if regex.startswith("/"):
         regex = ".*" + regex
         
@@ -218,14 +213,15 @@ async def get_resource_record(
 ):
     """Get a single captured record by its ID."""
     resource = get_resource_by_name(resource_name)
-
+    regex_pattern = pattern_to_regex(resource.url_pattern)
+    
     sql = """
         SELECT c.id, c.url, c.method, c.status, c.timestamp, b.body
         FROM captures c
         JOIN blobs b ON c.blob_hash = b.hash
-        WHERE c.url LIKE ? AND c.id = ?
+        WHERE regexp_matches(c.url, ?) AND c.id = ?
     """
-    params = [resource.url_pattern, record_id]
+    params = [regex_pattern, record_id]
 
     try:
         with DatabaseConnection() as conn:
@@ -237,16 +233,25 @@ async def get_resource_record(
     if not row:
         raise HTTPException(status_code=404, detail="Record not found")
 
+    import json
+    body_data = row[5]
+    if isinstance(body_data, str):
+        try:
+            body_data = json.loads(body_data)
+        except:
+            body_data = {}
+    if body_data is None: 
+        body_data = {}
+
     record = {
         "id": row[0],
         "url": row[1],
         "method": row[2],
         "status": row[3],
         "timestamp": row[4],
-        **row[5],
+        **body_data,
     }
     return record
-
 
 @router.get("/{resource_name}/latest")
 async def get_latest_resource_record(
@@ -254,16 +259,18 @@ async def get_latest_resource_record(
 ):
     """Get the most recent captured record for a resource."""
     resource = get_resource_by_name(resource_name)
+    
+    regex_pattern = pattern_to_regex(resource.url_pattern)
 
     sql = """
         SELECT c.id, c.url, c.method, c.status, c.timestamp, b.body
         FROM captures c
         JOIN blobs b ON c.blob_hash = b.hash
-        WHERE c.url LIKE ?
+        WHERE regexp_matches(c.url, ?)
         ORDER BY c.timestamp DESC
         LIMIT 1
     """
-    params = [resource.url_pattern]
+    params = [regex_pattern]
 
     try:
         with DatabaseConnection() as conn:
@@ -275,16 +282,25 @@ async def get_latest_resource_record(
     if not row:
         raise HTTPException(status_code=404, detail="No captures found")
 
+    import json
+    body_data = row[5]
+    if isinstance(body_data, str):
+        try:
+            body_data = json.loads(body_data)
+        except:
+            body_data = {}
+    if body_data is None: 
+        body_data = {}
+
     record = {
         "id": row[0],
         "url": row[1],
         "method": row[2],
         "status": row[3],
         "timestamp": row[4],
-        **row[5],
+        **body_data,
     }
     return record
-
 
 @router.get("/{resource_name}/history")
 async def get_resource_history(
@@ -294,19 +310,25 @@ async def get_resource_history(
 ):
     """Get capture history for a resource (timeline of captures)."""
     resource = get_resource_by_name(resource_name)
+    
+    regex_pattern = pattern_to_regex(resource.url_pattern)
 
     sql = """
         SELECT c.id, c.url, c.method, c.status, c.timestamp
         FROM captures c
-        WHERE c.url LIKE ?
+        WHERE regexp_matches(c.url, ?)
         ORDER BY c.timestamp DESC
         LIMIT ? OFFSET ?
     """
-    params = [resource.url_pattern, limit, offset]
+    params = [regex_pattern, limit, offset]
 
     try:
         with DatabaseConnection() as conn:
             rows = conn.execute(sql, params).fetchall()
+            
+            count_sql = "SELECT COUNT(*) FROM captures WHERE regexp_matches(url, ?)"
+            total = conn.execute(count_sql, [regex_pattern]).fetchone()[0]
+            
     except Exception as e:
         logger.exception("Database query failed")
         raise HTTPException(status_code=500, detail="Internal database error")
@@ -321,11 +343,6 @@ async def get_resource_history(
         }
         for row in rows
     ]
-
-    # Total count
-    count_sql = "SELECT COUNT(*) FROM captures WHERE url LIKE ?"
-    with DatabaseConnection() as conn:
-        total = conn.execute(count_sql, [resource.url_pattern]).fetchone()[0]
 
     return {
         "resource": resource_name,

@@ -75,14 +75,26 @@ class SpectreConfigManager:
         if not config_path.exists():
             return {}
 
-        with open(config_path, "r", encoding="utf-8") as f:
+        encodings = ["utf-8", "utf-16", "cp1251"]
+        
+        for enc in encodings:
             try:
-                data = yaml.safe_load(f)
-                logger.debug(f"Loaded YAML from {config_path}")
-                return data or {}
-            except yaml.YAMLError as e:
-                logger.error(f"Failed to parse YAML {config_path}: {e}")
+                with open(config_path, "r", encoding=enc) as f:
+                    try:
+                        data = yaml.safe_load(f)
+                        logger.debug(f"Loaded YAML from {config_path} using {enc}")
+                        return data or {}
+                    except yaml.YAMLError as e:
+                        logger.error(f"Failed to parse YAML {config_path}: {e}")
+                        return {}
+            except UnicodeDecodeError:
+                continue 
+            except Exception as e:
+                logger.error(f"Error reading config {config_path}: {e}")
                 return {}
+        
+        logger.error(f"Could not read {config_path} with any supported encoding.")
+        return {}
 
     def _build_config(self, yaml_data: dict) -> SpectreConfig:
         """Build a SpectreConfig instance from raw data."""
