@@ -1,0 +1,25 @@
+# Spectre configuration
+project: "example_site"
+base_url: "https://jsonplaceholder.typicode.com"
+database_path: "./data/spectre.duckdb"
+
+resources:
+  - name: "posts"
+    url_pattern: ".*/posts$"
+    method: "GET"
+    primary_key: "id"
+
+  - name: "post_details"
+    url_pattern: '.*/posts/\d+$'
+    method: "GET"
+    primary_key: "id"
+
+  - name: "comments"
+    url_pattern: ".*/comments$"
+    method: "GET"
+    primary_key: "id"
+
+  - name: "users"
+    url_pattern: ".*/users$"
+    method: "GET"
+    primary_key: "id"

@@ -1,0 +1,28 @@
+services:
+  spectre:
+    build: .
+    container_name: spectre
+    ports:
+      - "8000:8000"
+    environment:
+      - SPECTRE_DB_PATH=/data/spectre.duckdb
+      - SPECTRE_CONFIG_PATH=/app/spectre.yaml
+      - SPECTRE_HOST=0.0.0.0
+      - SPECTRE_PORT=8000
+    volumes:
+      - ./data:/data
+      - ./spectre.yaml:/app/spectre.yaml:ro
+    # IPC host mode improves Playwright stability in Docker
+    ipc: host
+    # Optional: enable if you need to debug with a visible browser
+    # environment:
+    #   - PLAYWRIGHT_HEADLESS=false
+    #   - DISPLAY=host.docker.internal:0
+    #   - QT_X11_NO_MITSHM=1
+    #   - XAUTHORITY=/tmp/.docker.xauth
+    # volumes:
+    #   - /tmp/.X11-unix:/tmp/.X11-unix:ro
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
