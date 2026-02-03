@@ -2,6 +2,19 @@
 
 Spectre uses a headless browser to intercept structured data (JSON/XHR) from dynamic websites, normalizes it into stable resources, stores it efficiently, and serves it via a local, versioned REST API.
 
+## Disclaimer
+
+**IMPORTANT: This tool is for educational and research purposes only.**
+
+The author of Spectre does not encourage, condone, or support the unauthorized scraping of websites or the violation of any website's Terms of Service. By using this software, you agree that:
+
+1. You are solely responsible for your actions and any consequences resulting from the use of this tool.
+2. You will comply with all applicable local and international laws regarding data privacy and intellectual property.
+3. You will respect `robots.txt` files and the Terms of Service of the target websites.
+4. The author shall not be held liable for any misuse, data loss, or legal issues arising from the use of this application.
+
+**Use Spectre responsibly and at your own risk.**
+
 ## Key Features
 
 - **Passive Observation**: Intercept network traffic, not DOM parsing
