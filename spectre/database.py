@@ -244,14 +244,12 @@ def cleanup_old_captures(
     """
     # Delete captures
     result = conn.execute(
-        """
-        DELETE FROM captures
-        WHERE timestamp < CURRENT_TIMESTAMP - INTERVAL ? DAY
-        RETURNING id, blob_hash
-        """,
-        (older_than_days,),
-    ).fetchall()
-    deleted = len(result)
+    """
+    DELETE FROM captures
+    WHERE timestamp < CURRENT_TIMESTAMP - make_interval(days := ?)
+    RETURNING id, blob_hash
+    """,
+    (older_than_days,),).fetchall()
 
     # Delete blobs that are no longer referenced
     conn.execute("""

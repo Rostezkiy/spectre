@@ -27,21 +27,18 @@ SLUG_PATTERN = re.compile(r"^[a-z0-9\-_]+$", re.IGNORECASE)
 
 def classify_segment(segment: str) -> str:
     """
-    Classify a URL path segment into a pattern placeholder.
-
-    Returns:
-        Original segment if static, or '{int}', '{uuid}', '{id}'.
+    Classify a URL path segment. 
+    Now more conservative to avoid treats resource names as IDs.
     """
     if not segment:
         return segment
     if INTEGER_PATTERN.match(segment):
-        return "{int}"
+        return "{int}" 
     if UUID_PATTERN.match(segment):
-        return "{uuid}"
+        return "{uuid}" 
     if SLUG_PATTERN.match(segment):
-        # Could be a slug, treat as generic ID
-        return "{id}"
-    # Static segment
+        if any(char.isdigit() for char in segment) or len(segment) > 20:
+            return "{id}"
     return segment
 
 
