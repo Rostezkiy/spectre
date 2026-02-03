@@ -172,8 +172,12 @@ async def list_resource(
             "method": row[2],
             "status": row[3],
             "timestamp": row[4],
-            **body_data,
         }
+
+        if isinstance(body_data, dict):
+            record.update(body_data)
+        else:
+            record["captured_data"] = body_data
         records.append(record)
 
     count_sql = f"""
@@ -239,8 +243,12 @@ async def get_resource_record(
         "method": row[2],
         "status": row[3],
         "timestamp": row[4],
-        **body_data,
     }
+
+    if isinstance(body_data, dict):
+        record.update(body_data)
+    else:
+        record["captured_data"] = body_data
     return record
 
 
@@ -290,8 +298,12 @@ async def get_latest_resource_record(
         "method": row[2],
         "status": row[3],
         "timestamp": row[4],
-        **body_data,
     }
+
+    if isinstance(body_data, dict):
+        record.update(body_data)
+    else:
+        record["captured_data"] = body_data
     return record
 
 
