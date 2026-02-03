@@ -4,3 +4,4 @@ data
 plans
 tests
 .pytest_cache
+spectre.yaml
