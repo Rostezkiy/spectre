@@ -132,7 +132,7 @@ Options:
 ```bash
 python -m spectre.cli serve [--host 0.0.0.0] [--port 8000] [--reload]
 ```
-**Visit `http://localhost:8000/docs` for all endpoints!**
+**🟥 Visit `http://localhost:8000/docs` for all endpoints**
 
 Options:
 - `--host`, `-h`: Bind address (default 0.0.0.0).
