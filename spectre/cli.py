@@ -31,9 +31,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 async def wait_for_enter(stop_event: asyncio.Event):
     await asyncio.get_event_loop().run_in_executor(None, sys.stdin.readline)
     stop_event.set()
+
 
 @app.command()
 def watch(
@@ -51,6 +53,7 @@ def watch(
     """Start capturing JSON responses from a website."""
     if config:
         import os
+
         os.environ["SPECTRE_CONFIG_PATH"] = str(config)
 
     reload_config()
@@ -67,26 +70,34 @@ def watch(
             headless=headless,
             database_path=cfg.database_path,
         )
-        
+
         async def run_all():
             await watcher.start(start_url=url)
-            
+
             enter_task = asyncio.create_task(wait_for_enter(watcher._stop_event))
-            
+
             console.print("\n[bold yellow]─── WATCHING MODE ACTIVE ───[/bold yellow]")
-            console.print("[bold cyan]• Intercepting JSON traffic in background...[/bold cyan]")
-            console.print("[bold green]• Click links in the browser to capture more data.[/bold green]")
-            console.print("[bold yellow]• Press ENTER in this terminal to stop safely.[/bold yellow]\n")
-            
+            console.print(
+                "[bold cyan]• Intercepting JSON traffic in background...[/bold cyan]"
+            )
+            console.print(
+                "[bold green]• Click links in the browser to capture more data.[/bold green]"
+            )
+            console.print(
+                "[bold yellow]• Press ENTER in this terminal to stop safely.[/bold yellow]\n"
+            )
+
             await watcher.run_until_interrupt()
-            
+
             if not enter_task.done():
                 enter_task.cancel()
 
         asyncio.run(run_all())
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]Watcher interrupted by Ctrl+C. Saving data and exiting...[/yellow]")
+        console.print(
+            "\n[yellow]Watcher interrupted by Ctrl+C. Saving data and exiting...[/yellow]"
+        )
     except Exception as e:
         console.print(f"[red]Watcher failed: {e}[/red]")
         sys.exit(1)
@@ -177,9 +188,7 @@ def clean(
     older_than_days: int = typer.Option(
         30, "--older-than", help="Delete captures older than X days"
     ),
-    yes: bool = typer.Option(
-        False, "--yes", "-y", help="Skip confirmation prompt"
-    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
 ):
     """Clean up old captures and orphaned blobs."""
     cfg = get_config()

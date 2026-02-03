@@ -27,15 +27,15 @@ SLUG_PATTERN = re.compile(r"^[a-z0-9\-_]+$", re.IGNORECASE)
 
 def classify_segment(segment: str) -> str:
     """
-    Classify a URL path segment. 
+    Classify a URL path segment.
     Now more conservative to avoid treats resource names as IDs.
     """
     if not segment:
         return segment
     if INTEGER_PATTERN.match(segment):
-        return "{int}" 
+        return "{int}"
     if UUID_PATTERN.match(segment):
-        return "{uuid}" 
+        return "{uuid}"
     if SLUG_PATTERN.match(segment):
         if any(char.isdigit() for char in segment) or len(segment) > 20:
             return "{id}"
@@ -55,9 +55,9 @@ def url_to_pattern(url: str) -> str:
     path = parsed.path.rstrip("/")
     segments = [s for s in path.split("/") if s]
     classified = [classify_segment(s) for s in segments]
-    
+
     pattern = "/" + "/".join(classified) if classified else "/"
-    
+
     return pattern
 
 
@@ -87,17 +87,15 @@ def suggest_resource_name(pattern: str, example_urls: List[str]) -> str:
     - If none, use the first static segment.
     - Fallback to generic 'resource_N'.
     """
-    
+
     segments = pattern.strip("/").split("/")
     static_segments = [s for s in segments if not s.startswith("{")]
 
     if static_segments:
-        
         candidate = static_segments[-1]
-        
+
         return candidate.lower()
 
-    
     if example_urls:
         example = example_urls[0]
         parsed = urlparse(example)
@@ -106,12 +104,11 @@ def suggest_resource_name(pattern: str, example_urls: List[str]) -> str:
         if last:
             return last.lower()
 
-    
     return "resource"
 
 
 def suggest_resources(
-    clusters: Dict[str, List[str]], method: str = "GET", conn = None
+    clusters: Dict[str, List[str]], method: str = "GET", conn=None
 ) -> List[Resource]:
     """
     Convert pattern clusters into Resource suggestions.
@@ -129,7 +126,7 @@ def suggest_resources(
 
     for pattern, example_urls in clusters.items():
         name = suggest_resource_name(pattern, example_urls)
-        
+
         original_name = name
         counter = 1
         while name in seen_names:
@@ -137,18 +134,13 @@ def suggest_resources(
             counter += 1
         seen_names.add(name)
 
-        
         primary_key = None
-        
-        
+
         if "{int}" in pattern or "{uuid}" in pattern or "{id}" in pattern:
             primary_key = "id"
 
-        
         if example_urls and conn:
-            
             try:
-                
                 sample_sql = """
                     SELECT b.body
                     FROM captures c
@@ -156,24 +148,27 @@ def suggest_resources(
                     WHERE c.url = ?
                     LIMIT 1
                 """
-                
+
                 row = conn.execute(sample_sql, [example_urls[0]]).fetchone()
                 if row:
                     import json
+
                     body = row[0]
                     if isinstance(body, str):
                         body = json.loads(body)
-                    
+
                     if isinstance(body, dict):
-                        
                         candidates = ["id", "uuid", "slug", "_id", "uid", "code"]
                         for cand in candidates:
                             if cand in body:
                                 primary_key = cand
                                 break
-                        
-                        
-                        if "data" in body and isinstance(body["data"], list) and body["data"]:
+
+                        if (
+                            "data" in body
+                            and isinstance(body["data"], list)
+                            and body["data"]
+                        ):
                             item = body["data"][0]
                             for cand in candidates:
                                 if cand in item:
@@ -185,9 +180,7 @@ def suggest_resources(
         resources.append(
             Resource(
                 name=name,
-                url_pattern=re.escape(pattern).replace(r"\{", "{").replace(
-                    r"\}", "}"
-                ),  
+                url_pattern=re.escape(pattern).replace(r"\{", "{").replace(r"\}", "}"),
                 method=method,
                 primary_key=primary_key,
             )
@@ -259,7 +252,6 @@ def print_analysis(
 
     console = Console()
 
-    
     table = Table(title="Discovered URL Patterns")
     table.add_column("Pattern", style="cyan")
     table.add_column("Example URL", style="dim")
@@ -271,7 +263,6 @@ def print_analysis(
 
     console.print(table)
 
-    
     if resources:
         res_table = Table(title="Suggested Resources")
         res_table.add_column("Name", style="green")
@@ -280,12 +271,9 @@ def print_analysis(
         res_table.add_column("Primary Key", style="magenta")
 
         for r in resources:
-            res_table.add_row(
-                r.name, r.url_pattern, r.method, r.primary_key or ""
-            )
+            res_table.add_row(r.name, r.url_pattern, r.method, r.primary_key or "")
         console.print(res_table)
 
-    
     if output_yaml:
         console.print("\n[bold]YAML configuration:[/bold]")
         yaml_text = generate_yaml_config(resources)

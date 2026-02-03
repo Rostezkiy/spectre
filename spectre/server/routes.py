@@ -15,20 +15,22 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
 def pattern_to_regex(pattern: str) -> str:
     """
     Превращает /api/users/{int} -> ^.*/api/users/\\d+$
     """
     regex = re.escape(pattern)
-    
+
     regex = regex.replace(r"\{int\}", r"\d+")
     regex = regex.replace(r"\{uuid\}", r"[0-9a-fA-F-]{36}")
     regex = regex.replace(r"\{id\}", r"[^/]+")
 
     if regex.startswith("/"):
         regex = ".*" + regex
-        
+
     return regex
+
 
 def get_resource_by_name(name: str) -> Resource:
     """Look up a resource by its name."""
@@ -36,9 +38,7 @@ def get_resource_by_name(name: str) -> Resource:
     for resource in config.resources:
         if resource.name == name:
             return resource
-    raise HTTPException(
-        status_code=404, detail=f"Resource '{name}' not found"
-    )
+    raise HTTPException(status_code=404, detail=f"Resource '{name}' not found")
 
 
 def build_filter_conditions(
@@ -90,7 +90,6 @@ def build_filter_conditions(
             elif operator == "neq":
                 conditions.append(f"{column} != ?")
             else:
-                
                 column = f"body->>'{key}'"
                 conditions.append(f"{column} = ?")
         else:
@@ -100,7 +99,7 @@ def build_filter_conditions(
 
     if conditions:
         return " AND ".join(conditions), values
-    return "1=1", []  
+    return "1=1", []
 
 
 @router.get("/{resource_name}")
@@ -108,9 +107,7 @@ async def list_resource(
     resource_name: str = Path(..., description="Resource name"),
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
-    
     filters: Dict[str, Any] = Depends(lambda: {}),
-    
     sort: Optional[str] = Query(None, description="Field to sort by"),
     order: str = Query("asc", regex="^(asc|desc)$"),
 ):
@@ -121,28 +118,24 @@ async def list_resource(
     Example: `/api/products?category=electronics&price__gt=100`
     """
     import json
+
     resource = get_resource_by_name(resource_name)
 
-    
     url_pattern = resource.url_pattern
     regex_pattern = pattern_to_regex(url_pattern)
     where_clauses = ["regexp_full_match(c.url, ?)"]
     params = [regex_pattern]
 
-    
     filter_sql, filter_params = build_filter_conditions(filters)
     where_clauses.append(filter_sql)
     params.extend(filter_params)
 
     where_sql = " AND ".join(f"({wc})" for wc in where_clauses)
 
-    
     order_by = ""
     if sort:
-        
         order_by = f"ORDER BY body->>'{sort}' {order.upper()}"
 
-    
     sql = f"""
         SELECT c.id, c.url, c.method, c.status, c.timestamp, b.body
         FROM captures c
@@ -160,19 +153,16 @@ async def list_resource(
         logger.exception("Database query failed")
         raise HTTPException(status_code=500, detail="Internal database error")
 
-    
     records = []
     for row in rows:
         body_data = row[5]
-        
-        
+
         if isinstance(body_data, str):
             try:
                 body_data = json.loads(body_data)
             except json.JSONDecodeError:
-                body_data = {}  
-        
-        
+                body_data = {}
+
         if body_data is None:
             body_data = {}
 
@@ -182,18 +172,17 @@ async def list_resource(
             "method": row[2],
             "status": row[3],
             "timestamp": row[4],
-            **body_data,  
+            **body_data,
         }
         records.append(record)
 
-    
     count_sql = f"""
         SELECT COUNT(*)
         FROM captures c
         JOIN blobs b ON c.blob_hash = b.hash
         WHERE {where_sql}
     """
-    count_params = params[:-2]  
+    count_params = params[:-2]
     with DatabaseConnection() as conn:
         total = conn.execute(count_sql, count_params).fetchone()[0]
 
@@ -214,7 +203,7 @@ async def get_resource_record(
     """Get a single captured record by its ID."""
     resource = get_resource_by_name(resource_name)
     regex_pattern = pattern_to_regex(resource.url_pattern)
-    
+
     sql = """
         SELECT c.id, c.url, c.method, c.status, c.timestamp, b.body
         FROM captures c
@@ -234,13 +223,14 @@ async def get_resource_record(
         raise HTTPException(status_code=404, detail="Record not found")
 
     import json
+
     body_data = row[5]
     if isinstance(body_data, str):
         try:
             body_data = json.loads(body_data)
         except:
             body_data = {}
-    if body_data is None: 
+    if body_data is None:
         body_data = {}
 
     record = {
@@ -253,13 +243,14 @@ async def get_resource_record(
     }
     return record
 
+
 @router.get("/{resource_name}/latest")
 async def get_latest_resource_record(
     resource_name: str = Path(..., description="Resource name"),
 ):
     """Get the most recent captured record for a resource."""
     resource = get_resource_by_name(resource_name)
-    
+
     regex_pattern = pattern_to_regex(resource.url_pattern)
 
     sql = """
@@ -283,13 +274,14 @@ async def get_latest_resource_record(
         raise HTTPException(status_code=404, detail="No captures found")
 
     import json
+
     body_data = row[5]
     if isinstance(body_data, str):
         try:
             body_data = json.loads(body_data)
         except:
             body_data = {}
-    if body_data is None: 
+    if body_data is None:
         body_data = {}
 
     record = {
@@ -302,6 +294,7 @@ async def get_latest_resource_record(
     }
     return record
 
+
 @router.get("/{resource_name}/history")
 async def get_resource_history(
     resource_name: str = Path(..., description="Resource name"),
@@ -310,7 +303,7 @@ async def get_resource_history(
 ):
     """Get capture history for a resource (timeline of captures)."""
     resource = get_resource_by_name(resource_name)
-    
+
     regex_pattern = pattern_to_regex(resource.url_pattern)
 
     sql = """
@@ -325,10 +318,10 @@ async def get_resource_history(
     try:
         with DatabaseConnection() as conn:
             rows = conn.execute(sql, params).fetchall()
-            
+
             count_sql = "SELECT COUNT(*) FROM captures WHERE regexp_matches(url, ?)"
             total = conn.execute(count_sql, [regex_pattern]).fetchone()[0]
-            
+
     except Exception as e:
         logger.exception("Database query failed")
         raise HTTPException(status_code=500, detail="Internal database error")

@@ -18,14 +18,11 @@ class DatabaseConnection:
 
     def __init__(self, database_path: Optional[str] = None):
         if database_path is None:
-            database_path = os.getenv(
-                "SPECTRE_DB_PATH", "./data/spectre.duckdb"
-            )
+            database_path = os.getenv("SPECTRE_DB_PATH", "./data/spectre.duckdb")
         self.database_path = database_path
         self._conn = None
 
     def __enter__(self):
-        
         data_dir = Path(self.database_path).parent
         data_dir.mkdir(parents=True, exist_ok=True)
 
@@ -36,13 +33,12 @@ class DatabaseConnection:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._conn is not None:
             self._conn.close()
-        return False  
+        return False
 
 
 def init_database(database_path: Optional[str] = None) -> None:
     """Initialize the database schema (create tables if not exist)."""
     with DatabaseConnection(database_path) as conn:
-        
         conn.execute("""
             CREATE TABLE IF NOT EXISTS blobs (
                 hash TEXT PRIMARY KEY,
@@ -51,7 +47,6 @@ def init_database(database_path: Optional[str] = None) -> None:
             )
         """)
 
-        
         conn.execute("""
             CREATE TABLE IF NOT EXISTS captures (
                 id UUID PRIMARY KEY,
@@ -65,7 +60,6 @@ def init_database(database_path: Optional[str] = None) -> None:
             )
         """)
 
-        
         conn.execute("""
             CREATE TABLE IF NOT EXISTS resources (
                 name TEXT PRIMARY KEY,
@@ -75,21 +69,14 @@ def init_database(database_path: Optional[str] = None) -> None:
             )
         """)
 
-        
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_captures_url ON captures(url)")
         conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_captures_url ON captures(url)"
+            "CREATE INDEX IF NOT EXISTS idx_captures_timestamp ON captures(timestamp)"
         )
         conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_captures_timestamp "
-            "ON captures(timestamp)"
+            "CREATE INDEX IF NOT EXISTS idx_captures_session ON captures(session_id)"
         )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_captures_session "
-            "ON captures(session_id)"
-        )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_blobs_hash ON blobs(hash)"
-        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_blobs_hash ON blobs(hash)")
 
         logger.info("Database schema initialized")
 
@@ -119,14 +106,12 @@ def insert_blob(
     if hash_value is None:
         hash_value = hash_body(body)
 
-    
     exists = conn.execute(
         "SELECT 1 FROM blobs WHERE hash = ?", (hash_value,)
     ).fetchone()
     if exists:
         return hash_value
 
-    
     conn.execute(
         "INSERT INTO blobs (hash, body) VALUES (?, ?)",
         (hash_value, body.decode("utf-8")),
@@ -161,7 +146,7 @@ def insert_capture(
     Returns:
         UUID of the inserted capture record.
     """
-    
+
     blob_hash = insert_blob(conn, body)
 
     capture_id = str(uuid4())
@@ -222,9 +207,7 @@ def get_captures_by_pattern(
     return conn.execute(query, params).fetchall()
 
 
-def get_distinct_urls(
-    conn: duckdb.DuckDBPyConnection, limit: int = 1000
-) -> List[str]:
+def get_distinct_urls(conn: duckdb.DuckDBPyConnection, limit: int = 1000) -> List[str]:
     """Return a list of distinct captured URLs."""
     rows = conn.execute(
         "SELECT DISTINCT url FROM captures ORDER BY url LIMIT ?",
@@ -242,28 +225,25 @@ def cleanup_old_captures(
 
     Returns number of deleted capture rows.
     """
-    
+
     result = conn.execute(
-    """
+        """
     DELETE FROM captures
     WHERE timestamp < CURRENT_TIMESTAMP - make_interval(days := ?)
     RETURNING id, blob_hash
     """,
-    (older_than_days,),).fetchall()
+        (older_than_days,),
+    ).fetchall()
 
-    
     conn.execute("""
         DELETE FROM blobs
         WHERE hash NOT IN (SELECT DISTINCT blob_hash FROM captures)
     """)
-    logger.info(
-        f"Cleaned up {deleted} captures older than {older_than_days} days"
-    )
+    logger.info(f"Cleaned up {deleted} captures older than {older_than_days} days")
     return deleted
 
 
 if __name__ == "__main__":
-    
     logging.basicConfig(level=logging.INFO)
     init_database()
     print("Database initialized successfully.")

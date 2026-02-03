@@ -22,9 +22,7 @@ class Resource(BaseModel):
     """Definition of a REST resource derived from captured URLs."""
 
     name: str = Field(..., description="Resource name (e.g., 'products')")
-    url_pattern: str = Field(
-        ..., description="Regex pattern for matching URLs"
-    )
+    url_pattern: str = Field(..., description="Regex pattern for matching URLs")
     method: str = Field("GET", description="HTTP method to match")
     primary_key: Optional[str] = Field(
         None, description="Field inside JSON that acts as primary key"
@@ -39,21 +37,16 @@ class Resource(BaseModel):
 class CaptureBase(BaseModel):
     """Common fields for capture records."""
 
-    session_id: str = Field(
-        ..., description="Identifier for the capture session"
-    )
+    session_id: str = Field(..., description="Identifier for the capture session")
     url: str = Field(..., description="Full request URL")
     method: str = Field("GET", description="HTTP method")
-    headers: Optional[Dict[str, Any]] = Field(
-        None, description="Response headers"
-    )
+    headers: Optional[Dict[str, Any]] = Field(None, description="Response headers")
     status: int = Field(..., ge=100, le=599, description="HTTP status code")
     blob_hash: str = Field(..., description="SHA256 hash of the JSON body")
 
     @field_validator("url")
     @classmethod
     def validate_url(cls, v: str) -> str:
-        
         if not v.startswith(("http://", "https://")):
             raise ValueError("URL must start with http:// or https://")
         return v
@@ -107,9 +100,7 @@ class SpectreConfig(BaseModel):
     """Root configuration model."""
 
     project: str = Field("default", description="Project name")
-    base_url: Optional[HttpUrl] = Field(
-        None, description="Base URL for captured API"
-    )
+    base_url: Optional[HttpUrl] = Field(None, description="Base URL for captured API")
     resources: List[Resource] = Field(
         default_factory=list, description="List of resource definitions"
     )

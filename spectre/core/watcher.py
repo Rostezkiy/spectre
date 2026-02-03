@@ -64,7 +64,6 @@ def should_ignore_domain(url: str) -> bool:
                 return True
         return False
     except (ValueError, AttributeError):
-        
         return False
 
 
@@ -77,9 +76,7 @@ class Watcher:
         headless: bool = True,
         database_path: Optional[str] = None,
     ):
-        self.session_id = session_id or datetime.utcnow().strftime(
-            "%Y%m%d_%H%M%S"
-        )
+        self.session_id = session_id or datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         self.headless = headless
         self.database_path = database_path
         self._stop_event = asyncio.Event()
@@ -90,7 +87,6 @@ class Watcher:
         self._running = False
         self._capture_count = 0
 
-        
         self.console = Console()
 
     async def start(self, start_url: Optional[str] = None) -> None:
@@ -101,13 +97,10 @@ class Watcher:
         self.console.print(
             f"[bold green]Starting watcher (session: {self.session_id})[/bold green]"
         )
-        self._browser = await self._playwright.chromium.launch(
-            headless=self.headless
-        )
+        self._browser = await self._playwright.chromium.launch(headless=self.headless)
         self._page = await self._browser.new_page()
         self._page.on("close", lambda p: self._stop_event.set())
 
-        
         await self._page.route("**/*", self._on_route)
 
         if start_url:
@@ -139,35 +132,29 @@ class Watcher:
         url = response.url
         method = response.request.method
 
-        
         if should_ignore_domain(url):
             logger.debug(f"Ignoring domain: {url}")
             return
 
-        
         headers = response.headers
         content_type = headers.get("content-type")
         if not is_json_response(content_type):
             return
 
-        
         try:
             body = await response.body()
         except Exception as e:
             logger.warning(f"Failed to read body from {url}: {e}")
             return
 
-        
         try:
             json.loads(body.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
             logger.debug(f"Non‑JSON body in {url}, skipping")
             return
 
-        
         body_hash = hashlib.sha256(body).hexdigest()
 
-        
         try:
             with DatabaseConnection(self.database_path) as conn:
                 insert_capture(
@@ -187,7 +174,6 @@ class Watcher:
         self._capture_count += 1
         logger.info(f"Captured {method} {url} ({len(body)} bytes)")
 
-        
         if self._capture_count % 10 == 0:
             self.console.print(
                 f"[dim]Captured {self._capture_count} responses so far...[/dim]"
@@ -252,11 +238,10 @@ def setup_logging(level: int = logging.INFO) -> None:
         datefmt="[%X]",
         handlers=[RichHandler(rich_tracebacks=True)],
     )
-    
+
     logging.getLogger("playwright").setLevel(logging.WARNING)
 
 
 if __name__ == "__main__":
-    
     setup_logging()
     asyncio.run(watch_url("https://jsonplaceholder.typicode.com/posts"))

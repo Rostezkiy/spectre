@@ -57,18 +57,15 @@ class SpectreConfigManager:
                 f"Config file specified in {CONFIG_ENV_VAR} does not exist: {env_path}"
             )
 
-        
         default = Path.cwd() / DEFAULT_CONFIG_NAME
         if default.exists():
             return default
 
-        
-        
         logger.warning(
             f"No configuration file found. Using defaults. "
             f"Create {DEFAULT_CONFIG_NAME} or set {CONFIG_ENV_VAR}."
         )
-        return default  
+        return default
 
     def _load_yaml(self, config_path: Path) -> dict:
         """Load YAML content from file."""
@@ -76,7 +73,7 @@ class SpectreConfigManager:
             return {}
 
         encodings = ["utf-8", "utf-16", "cp1251"]
-        
+
         for enc in encodings:
             try:
                 with open(config_path, "r", encoding=enc) as f:
@@ -88,22 +85,21 @@ class SpectreConfigManager:
                         logger.error(f"Failed to parse YAML {config_path}: {e}")
                         return {}
             except UnicodeDecodeError:
-                continue 
+                continue
             except Exception as e:
                 logger.error(f"Error reading config {config_path}: {e}")
                 return {}
-        
+
         logger.error(f"Could not read {config_path} with any supported encoding.")
         return {}
 
     def _build_config(self, yaml_data: dict) -> SpectreConfig:
         """Build a SpectreConfig instance from raw data."""
-        
+
         db_path = os.getenv(DB_ENV_VAR)
         if not db_path:
             db_path = yaml_data.get("database_path", "./data/spectre.duckdb")
 
-        
         raw_resources = yaml_data.get("resources", [])
         resources = []
         for r in raw_resources:
@@ -147,7 +143,6 @@ class SpectreConfigManager:
     def reset(self) -> None:
         """Reset the cached configuration (force reload on next get)."""
         self._config = None
-
 
 
 _config_manager = SpectreConfigManager()
