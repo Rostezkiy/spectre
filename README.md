@@ -63,6 +63,8 @@ After installation, you can run Spectre in two ways:
 
 The following examples use the `python -m spectre.cli` syntax, but you can replace it with `spectre` if the package is installed.
 
+---
+
 ## Quick Start
 
 1. **Initialize the database**:
@@ -98,6 +100,8 @@ The following examples use the `python -m spectre.cli` syntax, but you can repla
    curl http://localhost:8000/api/posts
    ```
 
+---
+
 ## Usage
 
 ### 1. Initialize database
@@ -128,6 +132,7 @@ Options:
 ```bash
 python -m spectre.cli serve [--host 0.0.0.0] [--port 8000] [--reload]
 ```
+**Visit `http://localhost:8000/docs` for all endpoints!**
 
 Options:
 - `--host`, `-h`: Bind address (default 0.0.0.0).
