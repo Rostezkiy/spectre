@@ -126,7 +126,7 @@ async def list_resource(
     # Build WHERE clause for URL pattern
     url_pattern = resource.url_pattern
     regex_pattern = pattern_to_regex(url_pattern)
-    where_clauses = ["regexp_matches(c.url, ?)"]
+    where_clauses = ["regexp_full_match(c.url, ?)"]
     params = [regex_pattern]
 
     # Add JSON field filters

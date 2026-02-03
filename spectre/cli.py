@@ -14,7 +14,7 @@ from rich.table import Table
 from spectre.config import get_config, reload_config
 from spectre.core.analyzer import analyze_database, print_analysis
 from spectre.core.watcher import setup_logging as setup_watcher_logging
-from spectre.core.watcher import watch_url
+from spectre.core.watcher import Watcher
 from spectre.database import DatabaseConnection, init_database
 
 app = typer.Typer(
@@ -32,6 +32,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+async def wait_for_enter(stop_event: asyncio.Event):
+    await asyncio.get_event_loop().run_in_executor(None, sys.stdin.readline)
+    stop_event.set()
 
 @app.command()
 def watch(
@@ -48,37 +51,43 @@ def watch(
 ):
     """Start capturing JSON responses from a website."""
     if config:
-        # Override config path via environment variable
         import os
-
         os.environ["SPECTRE_CONFIG_PATH"] = str(config)
 
-    # Reload config to pick up changes
     reload_config()
     cfg = get_config()
 
     console.print(f"[bold green]Starting watcher for {url}[/bold green]")
-    if session_id:
-        console.print(f"Session ID: {session_id}")
     console.print(f"Database: {cfg.database_path}")
-    console.print("[dim]Press Ctrl+C to stop.[/dim]")
 
-    # Ensure database is initialized
-    with DatabaseConnection(cfg.database_path) as conn:
-        init_database(cfg.database_path)
+    init_database(cfg.database_path)
 
-    # Run the async watcher
     try:
-        asyncio.run(
-            watch_url(
-                url=url,
-                session_id=session_id,
-                headless=headless,
-                database_path=cfg.database_path,
-            )
+        watcher = Watcher(
+            session_id=session_id,
+            headless=headless,
+            database_path=cfg.database_path,
         )
+        
+        async def run_all():
+            await watcher.start(start_url=url)
+            
+            enter_task = asyncio.create_task(wait_for_enter(watcher._stop_event))
+            
+            console.print("\n[bold yellow]─── WATCHING MODE ACTIVE ───[/bold yellow]")
+            console.print("[bold cyan]• Intercepting JSON traffic in background...[/bold cyan]")
+            console.print("[bold green]• Click links in the browser to capture more data.[/bold green]")
+            console.print("[bold yellow]• Press ENTER in this terminal to stop safely.[/bold yellow]\n")
+            
+            await watcher.run_until_interrupt()
+            
+            if not enter_task.done():
+                enter_task.cancel()
+
+        asyncio.run(run_all())
+
     except KeyboardInterrupt:
-        console.print("\n[yellow]Watcher stopped by user.[/yellow]")
+        console.print("\n[yellow]Watcher interrupted by Ctrl+C. Saving data and exiting...[/yellow]")
     except Exception as e:
         console.print(f"[red]Watcher failed: {e}[/red]")
         sys.exit(1)

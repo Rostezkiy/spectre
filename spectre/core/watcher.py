@@ -82,6 +82,7 @@ class Watcher:
         )
         self.headless = headless
         self.database_path = database_path
+        self._stop_event = asyncio.Event()
 
         self._playwright: Optional[Playwright] = None
         self._browser: Optional[Browser] = None
@@ -104,6 +105,7 @@ class Watcher:
             headless=self.headless
         )
         self._page = await self._browser.new_page()
+        self._page.on("close", lambda p: self._stop_event.set())
 
         # Enable request/response interception
         await self._page.route("**/*", self._on_route)
@@ -205,13 +207,10 @@ class Watcher:
         await asyncio.sleep(3)
 
     async def run_until_interrupt(self) -> None:
-        """Keep the watcher running until keyboard interrupt."""
+        """Keep the watcher running until stop event is set."""
         try:
-            # Attach response listener
             self._page.on("response", self._on_response)
-            # Keep alive
-            while self._running:
-                await asyncio.sleep(0.1)
+            await self._stop_event.wait()
         except asyncio.CancelledError:
             pass
         finally:
