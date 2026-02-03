@@ -13,13 +13,13 @@ Spectre uses a headless browser to intercept structured data (JSON/XHR) from dyn
 ## Architecture
 
 ```
-┌─────────────────┐    Capture    ┌──────────────┐    Store    ┌─────────────┐
-│   Headless      │───────────────▶│   Watcher    │────────────▶│   DuckDB    │
-│   Browser       │                │              │             │             │
-└─────────────────┘                └──────────────┘             └─────────────┘
-                                                                        │
+┌─────────────────┐    Capture   ┌──────────────┐    Store   ┌─────────────┐
+│   Headless      │─────────────▶│   Watcher    │──────────▶│   DuckDB    │
+│   Browser       │              │              │            │             │
+└─────────────────┘              └──────────────┘            └─────────────┘
+                                                                     │
 ┌─────────────────┐    Serve       ┌──────────────┐    Query         │
-│   Client        │◀───────────────│   FastAPI    │◀─────────────────┘
+│   Client        │◀──────────────│   FastAPI    │ ◀────────────────┘
 │   Application   │                │   Server     │
 └─────────────────┘                └──────────────┘
 ```
